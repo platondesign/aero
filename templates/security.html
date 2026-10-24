@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Безопасность — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<h1>Безопасность</h1>
+<p class="lead">Пароль от вашего аккаунта</p>
+
+<div class="split" style="margin-top:28px">
+  <div class="panel">
+    <h2>Сменить пароль</h2>
+    <form method="post" action="{{ url_for('change_password') }}">
+      <div class="field">
+        <label for="current">Текущий пароль</label>
+        <input type="password" id="current" name="current" required
+               autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label for="new">Новый пароль</label>
+        <input type="password" id="new" name="new" required minlength="8"
+               autocomplete="new-password">
+        <div class="hint">Не короче 8 символов</div>
+      </div>
+      <div class="field">
+        <label for="new2">Новый пароль ещё раз</label>
+        <input type="password" id="new2" name="new2" required minlength="8"
+               autocomplete="new-password">
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Сменить пароль</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Данные для входа</h2>
+    <div class="contacts">
+      {% if me.email %}
+      <div><span class="lbl">Почта</span>{{ me.email }}</div>
+      {% endif %}
+      {% if me.phone %}
+      <div><span class="lbl">Телефон</span>{{ me.phone }}</div>
+      {% endif %}
+      <div><span class="lbl">Зарегистрирован</span>
+        {{ fmt_dt(me.created_at, with_time=False) }}</div>
+    </div>
+
+    <p class="note">
+      Войти можно по почте или телефону — тем, что указали при регистрации.
+      Сменить их пока нельзя: попросите администратора.
+    </p>
+
+    <p class="note">
+      Если забыли пароль — обратитесь к администратору клуба. Он выдаст
+      временный, а вы сразу смените его здесь.
+    </p>
+  </div>
+</div>
+
+<style>
+  .contacts{margin-bottom:18px}
+  .contacts div{font-size:14px;padding:6px 0}
+  .contacts .lbl{display:block;font-size:10.5px;color:var(--dim);
+    text-transform:uppercase;letter-spacing:.08em;margin-bottom:1px}
+  .note{font-size:12.5px;color:var(--dim);line-height:1.7;margin-top:12px;
+    padding-top:12px;border-top:1px solid var(--line)}
+  .note:first-of-type{border-top:0;padding-top:0}
+</style>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Нет сети — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<div style="text-align:center;padding:80px 0">
+  <p class="eyebrow">офлайн</p>
+  <h1 style="margin-top:10px">Нет подключения</h1>
+  <p class="lead" style="margin:18px auto 0">
+    Страница не загрузилась. Проверьте интернет и попробуйте снова —
+    ранее открытые разделы останутся доступны.
+  </p>
+  <p style="margin-top:28px">
+    <a href="{{ url_for('index') }}" class="btn" style="display:inline-block">
+      Обновить
+    </a>
+  </p>
+</div>
+{% endblock %}

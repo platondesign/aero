@@ -1,0 +1,10 @@
+{% macro cover(n) %}
+  {% if n.cover_file %}
+  <div class="card-cover">
+    <img src="/uploads/{{ n.cover_file }}" alt="" loading="lazy">
+    {% if n.n_photos and n.n_photos > 1 %}
+      <span class="shots">{{ n.n_photos }}</span>
+    {% endif %}
+  </div>
+  {% endif %}
+{% endmacro %}

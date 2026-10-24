@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Серия: {{ events[0].title }} — управление{% endblock %}
+
+{% block body %}
+<p><a href="{{ url_for('admin_events') }}" class="dim" style="font-size:13px">
+  ← Все тренировки</a></p>
+
+<h1 style="margin-top:14px">{{ events[0].title }}</h1>
+<p class="lead">
+  Повторяющаяся тренировка · {{ mode_label }} ·
+  {{ events|length }} {% if events|length % 10 == 1 and events|length % 100 != 11 %}занятие
+  {% elif events|length % 10 in (2,3,4) and not 12 <= events|length % 100 <= 14 %}занятия
+  {% else %}занятий{% endif %} ·
+  с {{ fmt_dt(events[0].starts_at, with_time=False) }}
+  по {{ fmt_dt(events[-1].starts_at, with_time=False) }}
+</p>
+
+{% if total_signups %}
+<div class="save-note">
+  На занятия этой серии записались <b>{{ total_signups }}</b> раз.
+  Правка названия, места и времени <b>не удаляет записи</b> —
+  занятия сохраняют свои номера.
+</div>
+{% endif %}
+
+<div class="split" style="margin-top:26px">
+
+  <div class="panel">
+    <h2>Название, место, тренер</h2>
+    <p class="hint-s">Применится ко всем занятиям серии. Даты не меняются.</p>
+    <form method="post">
+      <input type="hidden" name="action" value="fields">
+
+      <div class="field">
+        <label>Название</label>
+        <input type="text" name="title" required value="{{ events[0].title }}">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Место</label>
+          <input type="text" name="place" value="{{ events[0].place or '' }}">
+        </div>
+        <div class="field" style="flex:0 0 130px">
+          <label>Группа</label>
+          <input type="text" name="group_name" value="{{ events[0].group_name or '' }}">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Тренер</label>
+          <select name="coach_id">
+            <option value="">— не указан —</option>
+            {% for c in coaches %}
+            <option value="{{ c.id }}"
+              {{ 'selected' if c.id == events[0].coach_id }}>{{ c.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field" style="flex:0 0 120px">
+          <label>Мест</label>
+          <input type="number" name="capacity" min="0"
+                 value="{{ events[0].capacity or '' }}" placeholder="без лимита">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Заметка</label>
+        <input type="text" name="note" value="{{ events[0].note or '' }}">
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit">Применить ко всей серии</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Время занятий</h2>
+    <p class="hint-s">
+      Меняет только час, даты остаются прежними. Если новое окончание
+      не указать, сохранится прежняя длительность.
+    </p>
+    <form method="post">
+      <input type="hidden" name="action" value="time">
+
+      <div class="row">
+        <div class="field">
+          <label>Начало</label>
+          <input type="time" name="start_time"
+                 value="{{ events[0].starts_at[11:16] }}" required>
+        </div>
+        <div class="field">
+          <label>Окончание</label>
+          <input type="time" name="end_time"
+                 value="{{ events[0].ends_at[11:16] if events[0].ends_at else '' }}">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit">Изменить время</button>
+      </div>
+    </form>
+
+    <div class="cut-block">
+      <h2 style="margin-top:0">Перенести серию</h2>
+      <p class="hint-s">
+        Сдвигает все занятия на столько же дней, сколько между старой
+        и новой датой. Интервалы сохраняются, записи участников тоже.
+      </p>
+      <form method="post">
+        <input type="hidden" name="action" value="dates">
+        <div class="row">
+          <div class="field" style="margin-bottom:0">
+            <label>Новая дата первого занятия</label>
+            <input type="date" name="new_start"
+                   value="{{ events[0].starts_at[:10] }}" required>
+          </div>
+          <div class="field" style="flex:0 0 auto;display:flex;align-items:flex-end">
+            <button class="btn" type="submit">Перенести</button>
+          </div>
+        </div>
+        <p class="shift-preview" id="shiftPreview">
+          Сейчас: {{ fmt_dt(events[0].starts_at, with_time=False) }} —
+          {{ fmt_dt(events[-1].starts_at, with_time=False) }}
+        </p>
+      </form>
+    </div>
+
+    <div class="cut-block">
+      <h2 style="margin-top:0">Продлить серию</h2>
+      <p class="hint-s">Добавит занятия по тому же правилу до указанной даты.</p>
+      <form method="post">
+        <input type="hidden" name="action" value="extend">
+        <div class="row">
+          <div class="field" style="margin-bottom:0">
+            <label>Продлить до</label>
+            <input type="date" name="until" required>
+          </div>
+          <div class="field" style="flex:0 0 auto;display:flex;align-items:flex-end">
+            <button class="btn" type="submit">Продлить</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="cut-block danger-zone">
+      <h2 style="margin-top:0">Сократить серию</h2>
+      <p class="hint-s">
+        Удалит все занятия <b>после</b> указанной даты.
+        Вместе с ними пропадут записи участников на эти даты.
+      </p>
+      <form method="post"
+            onsubmit="return confirm('Удалить занятия после выбранной даты? Записи на них тоже удалятся.')">
+        <input type="hidden" name="action" value="cut">
+        <div class="row">
+          <div class="field" style="margin-bottom:0">
+            <label>Оставить по</label>
+            <input type="date" name="cut_after" required>
+          </div>
+          <div class="field" style="flex:0 0 auto;display:flex;align-items:flex-end">
+            <button class="btn danger" type="submit">Сократить</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<section class="sec">
+  <div class="sec-head">
+    <h2>Занятия серии ({{ events|length }})</h2>
+  </div>
+  <div class="panel">
+    <table class="tbl">
+      <thead>
+        <tr><th>Дата</th><th>Время</th><th>Место</th><th>Записались</th>
+            <th>Перенести</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+        <tr>
+          <td style="white-space:nowrap">
+            {{ fmt_dt(e.starts_at, with_time=False) }}
+            <span class="wd">{{ ev_weekday(e.starts_at) }}</span>
+          </td>
+          <td><span class="ev-time">{{ ev_span(e) }}</span></td>
+          <td class="dim" style="font-size:13px">{{ e.place or '—' }}</td>
+          <td>
+            <a href="{{ url_for('admin_event_detail', eid=e.id) }}"
+               class="cnt">{{ e.n_signups }}</a>
+          </td>
+          <td>
+            <form method="post" class="move-one">
+              <input type="hidden" name="action" value="one_date">
+              <input type="hidden" name="event_id" value="{{ e.id }}">
+              <input type="date" name="one_date" value="{{ e.starts_at[:10] }}"
+                     required title="Новая дата">
+              <input type="time" name="one_time" value="{{ e.starts_at[11:16] }}"
+                     title="Время">
+              <button class="btn ghost2 sm" type="submit"
+                      title="Перенести это занятие">→</button>
+            </form>
+          </td>
+          <td style="text-align:right">
+            <form method="post"
+                  action="{{ url_for('admin_event_delete', eid=e.id) }}"
+                  onsubmit="return confirm('Удалить {{ fmt_dt(e.starts_at) }}?')">
+              <input type="hidden" name="scope" value="one">
+              <button class="btn danger sm" type="submit">Убрать</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<style>
+  .hint-s{font-size:12.5px;color:var(--dim);line-height:1.65;margin-bottom:14px}
+  .save-note{
+    margin-top:20px;padding:13px 16px;border-radius:9px;font-size:13.5px;
+    background:#f1f7f3;border:1px solid #cbe0d2;color:#2f6042;line-height:1.6;
+  }
+  .save-note b{font-weight:700}
+  .cut-block{margin-top:20px;border-top:1px solid var(--line);padding-top:18px}
+  .danger-zone .hint-s{color:#8a4a44}
+  .wd{font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    color:var(--dim);text-transform:uppercase;margin-left:5px}
+
+  .shift-preview{font-size:12px;color:var(--dim);margin-top:9px;
+    font-family:'JetBrains Mono',monospace}
+  .move-one{display:flex;gap:4px;align-items:center;white-space:nowrap}
+  .move-one input[type=date]{
+    width:133px;font-size:12px;padding:5px 7px;border-radius:6px;
+  }
+  .move-one input[type=time]{
+    width:76px;font-size:12px;padding:5px 7px;border-radius:6px;
+  }
+  @media(max-width:700px){
+    .move-one{flex-wrap:wrap}
+    .move-one input[type=date]{width:126px}
+  }
+  .cnt{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;
+    background:var(--soft);padding:3px 9px;border-radius:6px;color:var(--dim)}
+  .cnt:hover{background:var(--ink);color:#fff}
+  .ev-time{font-family:'JetBrains Mono',monospace;font-size:12.5px;
+    font-weight:700;color:#9c3f1f;background:#fbeee8;border:1px solid #f2d6c8;
+    border-radius:6px;padding:2px 8px;white-space:nowrap}
+</style>
+{% endblock %}

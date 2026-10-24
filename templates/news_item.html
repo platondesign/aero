@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}{{ item.title }} — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<article class="article">
+  <p class="eyebrow">{{ fmt_dt(item.created_at, with_time=False) }}</p>
+  <h1>{{ item.title }}</h1>
+  {% if item.summary %}<p class="lead">{{ item.summary }}</p>{% endif %}
+
+  {% if photos %}
+  {% set lead = photos[0] %}
+  <figure class="cover">
+    <img src="/uploads/{{ lead.filename }}" alt="" class="zoomable">
+  </figure>
+  {% endif %}
+
+  <div class="prose">{{ item.body }}</div>
+
+  {% if photos|length > 1 %}
+  <div class="gallery">
+    {% for p in photos[1:] %}
+    <img src="/uploads/{{ p.filename }}" alt="" loading="lazy" class="zoomable">
+    {% endfor %}
+  </div>
+  <p class="gal-hint">Фото можно листать — нажмите на любое</p>
+  {% elif photos %}
+  <p class="gal-hint">Нажмите на фото, чтобы открыть во весь экран</p>
+  {% endif %}
+
+  {% if item.author %}
+  <p class="dim" style="margin-top:32px;font-size:13px">{{ item.author }}</p>
+  {% endif %}
+</article>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lb-close" type="button" aria-label="Закрыть">×</button>
+  <button class="lb-prev" type="button" aria-label="Предыдущее фото">‹</button>
+  <img class="lb-img" src="" alt="">
+  <button class="lb-next" type="button" aria-label="Следующее фото">›</button>
+  <div class="lb-count"></div>
+</div>
+
+<style>
+  .article{max-width:70ch}
+
+  .prose{margin-top:26px;font-size:16px;line-height:1.75;white-space:pre-wrap}
+
+  /* главное фото — целиком, без обрезки */
+  .cover{
+    margin:26px 0 0;border-radius:12px;overflow:hidden;
+    border:1px solid var(--line);background:var(--soft);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .cover img{
+    width:100%;height:auto;max-height:70vh;object-fit:contain;display:block;
+  }
+
+  /* галерея: на телефоне в столбик, на широком — в ряд */
+  .gallery{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
+  .gallery img{
+    width:100%;height:auto;max-height:70vh;object-fit:contain;
+    border-radius:10px;border:1px solid var(--line);background:var(--soft);
+    display:block;
+  }
+
+  .zoomable{cursor:zoom-in}
+  .gal-hint{font-size:12px;color:var(--dim);margin-top:10px;text-align:center}
+
+  /* ── просмотр на весь экран ── */
+  .lightbox{
+    position:fixed;inset:0;z-index:100;background:rgba(16,16,16,.96);
+    display:flex;align-items:center;justify-content:center;
+    padding:16px;
+  }
+  .lightbox[hidden]{display:none}
+
+  .lb-img{
+    max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;
+    user-select:none;-webkit-user-drag:none;
+  }
+
+  .lb-close,.lb-prev,.lb-next{
+    position:absolute;font-family:inherit;cursor:pointer;
+    background:rgba(255,255,255,.1);color:#fff;border:0;
+    display:flex;align-items:center;justify-content:center;
+    backdrop-filter:blur(6px);transition:background .15s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .lb-close:hover,.lb-prev:hover,.lb-next:hover{background:rgba(255,255,255,.22)}
+  .lb-close:active,.lb-prev:active,.lb-next:active{background:rgba(255,255,255,.3)}
+
+  .lb-close{
+    top:14px;right:14px;width:40px;height:40px;border-radius:50%;
+    font-size:24px;line-height:1;
+  }
+  .lb-prev,.lb-next{
+    top:50%;transform:translateY(-50%);
+    width:46px;height:64px;border-radius:10px;font-size:30px;line-height:1;
+    padding-bottom:4px;
+  }
+  .lb-prev{left:10px}
+  .lb-next{right:10px}
+  .lb-prev[hidden],.lb-next[hidden]{display:none}
+
+  .lb-count{
+    position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+    font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+    color:#fff;background:rgba(255,255,255,.14);border-radius:20px;
+    padding:4px 13px;letter-spacing:.06em;backdrop-filter:blur(6px);
+  }
+  .lb-count[hidden]{display:none}
+
+  @media(max-width:600px){
+    .cover{margin-top:18px;border-radius:10px}
+    .cover img,.gallery img{max-height:78vh}
+    .gallery{gap:8px}
+    .lightbox{padding:0}
+    .lb-img{border-radius:0;max-height:100vh}
+    .lb-prev,.lb-next{
+      width:40px;height:56px;font-size:26px;top:auto;bottom:14px;
+      transform:none;border-radius:10px;
+    }
+    .lb-prev{left:14px}
+    .lb-next{right:14px}
+    .lb-count{bottom:24px}
+    .lb-close{top:10px;right:10px;width:36px;height:36px;font-size:21px}
+  }
+</style>
+
+<script src="{{ url_for('static', filename='lightbox.js') }}" defer></script>
+
+<p style="margin-top:36px"><a href="{{ url_for('news_list') }}" class="dim">← Все новости</a></p>
+{% endblock %}

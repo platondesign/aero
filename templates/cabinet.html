@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Кабинет — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<div class="cab-head">
+  <div class="ava big">
+    {% if me.photo %}<img src="/uploads/{{ me.photo }}" alt="">
+    {% else %}{{ me.full_name[:1] }}{% endif %}
+  </div>
+  <div style="flex:1 1 auto;min-width:0">
+    <h1 style="font-size:24px">{{ me.full_name }}</h1>
+    <p class="lead" style="font-size:14px;margin-top:4px">
+      {% for r in me.roles %}{{ ROLES[r] }}{% if not loop.last %}, {% endif %}{% endfor %}
+    </p>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('upload_own_photo') }}"
+      enctype="multipart/form-data" class="photo-form">
+  <label class="photo-btn">
+    {{ 'Сменить фото' if me.photo else 'Загрузить фото' }}
+    <input type="file" name="photo" accept="image/*" onchange="this.form.submit()">
+  </label>
+</form>
+{% if me.photo %}
+<form method="post" action="{{ url_for('delete_own_photo') }}"
+      onsubmit="return confirm('Удалить фото профиля?')" class="photo-del">
+  <button type="submit">Удалить фото</button>
+</form>
+{% endif %}
+
+<a href="{{ url_for('security') }}" class="photo-del"
+   style="font-size:13px;color:var(--dim);padding:8px 4px;margin-left:4px">
+  Пароль и безопасность
+</a>
+
+<div class="split" style="margin-top:30px">
+
+  <div class="panel">
+    <h2>Профиль</h2>
+    <form method="post" action="{{ url_for('save_profile') }}">
+      <div class="field">
+        <label>Имя и фамилия</label>
+        <input type="text" name="full_name" value="{{ me.full_name }}">
+      </div>
+      <div class="field">
+        <label>Подпись</label>
+        <input type="text" name="title" value="{{ me.title or '' }}"
+               placeholder="Спортсмен, F2D">
+      </div>
+      <div class="field">
+        <label>Дата рождения</label>
+        <input type="date" name="birth_date" value="{{ me.birth_date or '' }}">
+      </div>
+      <div class="field">
+        <label>О себе</label>
+        <textarea name="bio" placeholder="Коротко о себе">{{ me.bio or '' }}</textarea>
+      </div>
+      <div class="actions"><button class="btn" type="submit">Сохранить</button></div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Мой парк моделей</h2>
+
+    {% if fleet %}
+    <div class="fleet-sum">
+      {% for s, label in STATUSES.items() %}
+        <div><b>{{ fleet | selectattr('status', 'equalto', s) | list | length }}</b>
+          <span>{{ label }}</span></div>
+      {% endfor %}
+    </div>
+    {% for a in fleet %}
+    <div class="fleet-row">
+      <span class="dot {{ a.status }}"></span>
+      <span class="cls">{{ a.class_code }}</span>
+      <span style="flex:1 1 auto">{{ a.name }}</span>
+      <form method="post" action="{{ url_for('set_aircraft_status', aid=a.id) }}"
+            style="display:flex;gap:4px;align-items:center">
+        <select name="status" onchange="this.form.submit()"
+                style="font-size:11px;padding:3px 6px;border-radius:5px;width:auto">
+          {% for s, label in STATUSES.items() %}
+          <option value="{{ s }}" {{ 'selected' if a.status == s }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      <form method="post" action="{{ url_for('del_aircraft', aid=a.id) }}">
+        <button class="btn danger sm" type="submit" title="Удалить">×</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty">Моделей ещё нет</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('add_aircraft') }}"
+          style="margin-top:16px;border-top:1px solid var(--line);padding-top:16px">
+      <div class="row">
+        <div class="field" style="margin-bottom:10px">
+          <label>Название</label>
+          <input type="text" name="name" required placeholder="Як-55">
+        </div>
+        <div class="field" style="margin-bottom:10px;flex:0 0 90px">
+          <label>Класс</label>
+          <input type="text" name="class_code" required placeholder="F2D"
+                 style="text-transform:uppercase">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label>Статус</label>
+        <select name="status">
+          {% for s, label in STATUSES.items() %}
+          <option value="{{ s }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn sm" type="submit">Добавить модель</button>
+    </form>
+  </div>
+</div>
+
+<div class="split" style="margin-top:20px">
+  <div class="panel">
+    <h2>Мои награды</h2>
+    {% if awards %}
+      {% for a in awards %}
+      <div class="award">
+        <div class="medal p{{ a.place or 0 }}">
+          {% if a.place and a.place <= 3 %}{{ a.place }}{% else %}·{% endif %}
+        </div>
+        <div>
+          <div class="at">{{ a.title }}</div>
+          <div class="as">{{ a.event_name or '' }}{% if a.year %} · {{ a.year }}{% endif %}</div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Наград пока нет — их добавляет тренер или админ</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Я записан</h2>
+    {% if my_events %}
+      {% for e in my_events %}
+      <div class="ev">
+        <div class="ev-date">
+          <div class="d">{{ ev_day(e.starts_at) }}</div>
+          <div class="m">{{ ev_mon(e.starts_at) }}</div>
+          <div class="w">{{ ev_weekday(e.starts_at) }}</div>
+        </div>
+        <div class="ev-body">
+          <div class="t">{{ e.title }}</div>
+          <div class="ev-meta">
+            <span class="ev-time">{{ ev_span(e) }}</span>
+            {% if e.place %}<span>{{ e.place }}</span>{% endif %}
+          </div>
+          <form method="post" action="{{ url_for('event_leave', eid=e.id) }}"
+                style="margin-top:6px">
+            <input type="hidden" name="back" value="{{ url_for('cabinet') }}">
+            <button class="btn ghost2 sm" type="submit">Отменить</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Вы пока никуда не записаны</div>
+    {% endif %}
+
+    <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+      <h2 style="margin-bottom:10px">Ближайшие тренировки</h2>
+      {% if upcoming %}
+        {% for e in upcoming %}
+        <div class="ev">
+          <div class="ev-date">
+            <div class="d">{{ ev_day(e.starts_at) }}</div>
+            <div class="m">{{ ev_mon(e.starts_at) }}</div>
+            <div class="w">{{ ev_weekday(e.starts_at) }}</div>
+          </div>
+          <div class="ev-body">
+            <div class="t">{{ e.title }}</div>
+            <div class="ev-meta">
+              <span class="ev-time">{{ ev_span(e) }}</span>
+              {% if e.place %}<span>{{ e.place }}</span>{% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        <p style="margin-top:12px">
+          <a href="{{ url_for('schedule') }}" class="dim" style="font-size:13px">
+            Записаться в расписании →</a>
+        </p>
+      {% else %}
+        <div class="empty">Тренировок не запланировано</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+  .cab-head{display:flex;gap:18px;align-items:center}
+  .ava.big{width:82px;height:82px;font-size:29px}
+  .photo-form{margin-top:14px}
+  .photo-btn{
+    display:inline-block;font-size:13px;font-weight:600;cursor:pointer;
+    background:var(--soft);color:var(--ink);border-radius:8px;padding:8px 15px;
+  }
+  .photo-btn:hover{background:#ebe7e0}
+  .photo-btn input{display:none}
+  .photo-del{display:inline-block;margin-left:8px}
+  .photo-del button{
+    font-family:inherit;font-size:13px;color:var(--err);background:none;
+    border:0;cursor:pointer;padding:8px 4px;
+  }
+  .photo-del button:hover{text-decoration:underline}
+  .fleet-sum{display:flex;gap:8px;margin-bottom:14px}
+  .fleet-sum div{flex:1;text-align:center;background:var(--soft);
+    border-radius:8px;padding:8px 4px}
+  .fleet-sum b{display:block;font-family:'JetBrains Mono',monospace;font-size:17px}
+  .fleet-sum span{font-size:9.5px;color:var(--dim);text-transform:uppercase;
+    letter-spacing:.06em}
+</style>
+{% endblock %}

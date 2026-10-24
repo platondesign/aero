@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Правка' if item else 'Новая новость' }} — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<h1>{{ 'Правка новости' if item else 'Новая новость' }}</h1>
+
+<form method="post" enctype="multipart/form-data" class="form" style="margin-top:26px">
+  <button type="submit" tabindex="-1" aria-hidden="true" style="position:absolute;width:0;height:0;padding:0;border:0;overflow:hidden"></button>
+  <div class="field">
+    <label for="title">Заголовок</label>
+    <input type="text" id="title" name="title" required
+           value="{{ item.title if item else '' }}">
+  </div>
+  <div class="field">
+    <label for="summary">Короткое описание</label>
+    <input type="text" id="summary" name="summary"
+           value="{{ item.summary if item else '' }}"
+           placeholder="Одна строка для списка новостей">
+  </div>
+  <div class="field">
+    <label for="body">Текст</label>
+    <textarea id="body" name="body" required style="min-height:280px">{{ item.body if item else '' }}</textarea>
+  </div>
+
+  {% if item and photos %}
+  <div class="field">
+    <label>Фотографии в новости</label>
+    <div class="photo-grid">
+      {% for p in photos %}
+      <div class="ph">
+        <img src="/uploads/{{ p.filename }}" alt="">
+        <button type="submit" class="x" title="Удалить" formaction="{{ url_for('news_photo_delete', pid=p.id) }}" onclick="return confirm('Удалить фото?')">×</button>
+        <div class="mv">
+          {% if not loop.first %}<button type="submit" title="Переместить влево" formaction="{{ url_for('news_photo_move', pid=p.id, direction='up') }}">←</button>{% endif %}
+          {% if not loop.last %}<button type="submit" title="Переместить вправо" formaction="{{ url_for('news_photo_move', pid=p.id, direction='down') }}">→</button>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="hint">Первое фото становится обложкой в списке новостей</div>
+  </div>
+  {% endif %}
+
+  <div class="field">
+    <label for="photos">Добавить фотографии</label>
+    <input type="file" id="photos" name="photos" accept="image/*" multiple
+           class="file">
+    <div class="hint">Можно выбрать несколько сразу. JPG, PNG, WebP. До 8 МБ каждое</div>
+  </div>
+
+  <div class="field">
+    <label style="display:flex;gap:9px;align-items:center;font-weight:400">
+      <input type="checkbox" name="published" style="width:auto"
+             {{ 'checked' if (not item or item.published) }}>
+      Опубликовано (видно на сайте)
+    </label>
+  </div>
+
+  <div class="actions">
+    {% if item %}{% if item.published %}
+    <button class="btn ghost2" type="submit" formaction="{{ url_for('news_set_published', nid=item.id, state=0) }}">Снять с публикации</button>
+    {% else %}
+    <button class="btn" type="submit" formaction="{{ url_for('news_set_published', nid=item.id, state=1) }}">Опубликовать сейчас</button>
+    {% endif %}{% endif %}
+    <button class="btn" type="submit">Сохранить</button>
+    <a href="{{ url_for('editor') }}" class="dim" style="font-size:13px">Отмена</a>
+  </div>
+</form>
+
+<style>
+  .file{
+    width:100%;font-size:13.5px;padding:11px 12px;background:#fff;
+    border:1px dashed var(--line);border-radius:8px;cursor:pointer;
+  }
+  .file::file-selector-button{
+    font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
+    background:var(--soft);color:var(--ink);border:0;border-radius:6px;
+    padding:7px 13px;margin-right:12px;
+  }
+  .photo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+    margin-bottom:9px}
+  .ph{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;
+    border:1px solid var(--line)}
+  .ph img{width:100%;height:100%;object-fit:cover}
+  .ph form{position:absolute;top:4px;right:4px}
+  .ph button{width:22px;height:22px;border-radius:50%;border:0;
+    background:rgba(26,26,26,.75);color:#fff;font-size:14px;line-height:1;
+    cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .ph button:hover{background:var(--err)}
+  .mv{position:absolute;left:4px;right:4px;bottom:4px;display:flex;justify-content:space-between}
+  .ph .x{position:absolute;top:4px;right:4px}
+  .ph .mv form{position:static}
+  @media(max-width:600px){.photo-grid{grid-template-columns:repeat(3,1fr)}}
+</style>
+{% endblock %}

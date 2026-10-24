@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ person.full_name }} — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<div class="prof-head">
+  <div class="ava big">
+    {% if person.photo %}<img src="/uploads/{{ person.photo }}" alt="">
+    {% else %}{{ person.full_name[:1] }}{% endif %}
+  </div>
+  <div>
+    <h1>{{ person.full_name }}</h1>
+    <p class="dim" style="margin-top:4px">{{ person.title or 'Участник клуба' }}</p>
+    <div style="margin-top:10px">
+      {% for r in person.roles %}
+        <span class="tag {{ r }}">{{ ROLES[r] }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% if person.bio %}
+<p class="lead" style="margin-top:22px;white-space:pre-wrap">{{ person.bio }}</p>
+{% endif %}
+
+<div class="split" style="margin-top:34px">
+  <div class="panel">
+    <h2>Награды и достижения</h2>
+    {% if awards %}
+      {% for a in awards %}
+      <div class="award">
+        <div class="medal p{{ a.place or 0 }}">
+          {% if a.place and a.place <= 3 %}{{ a.place }}{% else %}·{% endif %}
+        </div>
+        <div>
+          <div class="at">{{ a.title }}</div>
+          <div class="as">
+            {% if a.event_name %}{{ a.event_name }}{% endif %}
+            {% if a.year %} · {{ a.year }}{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Наград пока нет</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Парк моделей</h2>
+    {% if can_see_fleet %}
+      {% if fleet %}
+        <div class="fleet-sum">
+          {% for s, label in STATUSES.items() %}
+            <div><b>{{ by_status[s] }}</b><span>{{ label }}</span></div>
+          {% endfor %}
+        </div>
+        {% for a in fleet %}
+        <div class="fleet-row">
+          <span class="dot {{ a.status }}"></span>
+          <span class="cls">{{ a.class_code }}</span>
+          <span style="flex:1 1 auto">{{ a.name }}</span>
+          <span class="dim" style="font-size:12px">{{ STATUSES[a.status] }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty">Моделей пока нет</div>
+      {% endif %}
+    {% else %}
+      <div class="empty">Парк виден только владельцу и тренерам</div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+  .prof-head{display:flex;gap:20px;align-items:center}
+  .ava.big{width:84px;height:84px;font-size:30px}
+  .fleet-sum{display:flex;gap:8px;margin-bottom:14px}
+  .fleet-sum div{flex:1;text-align:center;background:var(--soft);
+    border-radius:8px;padding:8px 4px}
+  .fleet-sum b{display:block;font-family:'JetBrains Mono',monospace;font-size:17px}
+  .fleet-sum span{font-size:9.5px;color:var(--dim);text-transform:uppercase;
+    letter-spacing:.06em}
+</style>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Заявка — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<div class="form" style="margin:40px auto">
+  <h1>Заявка в клуб</h1>
+  <p class="lead">После регистрации администратор одобрит заявку, и вы сможете
+    войти.</p>
+
+  <form method="post" style="margin-top:28px">
+    <div class="field">
+      <label for="full_name">Имя и фамилия</label>
+      <input type="text" id="full_name" name="full_name" required
+             value="{{ form.get('full_name', '') }}">
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="phone">Телефон</label>
+        <input type="tel" id="phone" name="phone"
+               value="{{ form.get('phone', '') }}" placeholder="+7 900 000-00-00">
+      </div>
+      <div class="field">
+        <label for="email">Почта</label>
+        <input type="email" id="email" name="email"
+               value="{{ form.get('email', '') }}" placeholder="you@mail.ru">
+      </div>
+    </div>
+    <p class="hint" style="margin:-8px 0 18px;font-size:12px;color:var(--dim)">
+      Достаточно одного: телефона или почты — по нему будете входить.</p>
+
+    <div class="field">
+      <label for="password">Пароль</label>
+      <input type="password" id="password" name="password" required minlength="8">
+      <div class="hint">Не короче 8 символов</div>
+    </div>
+    <div class="field">
+      <label for="password2">Пароль ещё раз</label>
+      <input type="password" id="password2" name="password2" required minlength="8">
+    </div>
+
+    <div class="field" style="font-size:13px;color:var(--dim)">
+      <label style="font-weight:400;display:flex;gap:8px;align-items:flex-start">
+        <input type="checkbox" name="agree_docs" value="1" required style="margin-top:4px">
+        <span>Я ознакомлен(а) с <a href="{{ url_for('privacy') }}" target="_blank" style="color:var(--accent)">Политикой обработки персональных данных</a>
+        и <a href="{{ url_for('terms') }}" target="_blank" style="color:var(--accent)">Пользовательским соглашением</a>.</span>
+      </label>
+    </div>
+    <div class="field" style="font-size:13px;color:var(--dim)">
+      <label style="font-weight:400;display:flex;gap:8px;align-items:flex-start">
+        <input type="checkbox" name="agree_pd" value="1" required style="margin-top:4px">
+        <span>Даю согласие на обработку моих персональных данных (ФИО, контакты, сведения в личном кабинете)
+        в целях, указанных в Политике. Согласие добровольное и может быть отозвано.</span>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button class="btn" type="submit">Отправить заявку</button>
+      <a href="{{ url_for('login') }}" class="dim" style="font-size:13px">
+        Уже есть аккаунт</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "_card.html" as card %}
+{% block title %}Команда — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<h1>Команда</h1>
+<p class="lead">Тренерский состав и спортсмены клуба</p>
+
+{% if coaches %}
+<section class="sec">
+  <div class="sec-head"><h2>Тренеры</h2></div>
+  <div class="grid g2">
+    {% for p in coaches %}
+    <a class="person card-link" href="{{ url_for('profile', uid=p.id) }}">
+      <div class="ava">
+        {% if p.photo %}<img src="/uploads/{{ p.photo }}" alt="">
+        {% else %}{{ p.full_name[:1] }}{% endif %}
+      </div>
+      <div style="flex:1 1 auto;min-width:0">
+        <div class="n">{{ p.full_name }}</div>
+        <div class="r">{{ p.title or 'Тренер' }}</div>
+        <div class="c">{{ p.awards }} наград · {{ p.aircraft }} моделей</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if athletes %}
+<section class="sec">
+  <div class="sec-head"><h2>Спортсмены</h2></div>
+  <div class="grid g2">
+    {% for p in athletes %}
+    <a class="person card-link" href="{{ url_for('profile', uid=p.id) }}">
+      <div class="ava">
+        {% if p.photo %}<img src="/uploads/{{ p.photo }}" alt="">
+        {% else %}{{ p.full_name[:1] }}{% endif %}
+      </div>
+      <div style="flex:1 1 auto;min-width:0">
+        <div class="n">{{ p.full_name }}</div>
+        <div class="r">{{ p.title or 'Спортсмен' }}</div>
+        <div class="c">{{ p.awards }} наград · {{ p.aircraft }} моделей</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if not coaches and not athletes %}
+<div class="empty" style="margin-top:40px">Участники ещё не добавлены</div>
+{% endif %}
+{% endblock %}

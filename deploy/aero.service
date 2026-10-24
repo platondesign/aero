@@ -1,0 +1,46 @@
+[Unit]
+Description=Aero Volgodonsk — сайт авиамодельного клуба
+Documentation=file:///srv/aero/README.txt
+After=network.target
+
+[Service]
+Type=notify
+User=aero
+Group=aero
+WorkingDirectory=/srv/aero
+
+# Ключ сессий и пути. Ключ генерируется один раз при первой установке
+# и лежит в /srv/aero/data/secret.key — здесь только путь к данным.
+Environment="AERO_DB=/srv/aero/data/aero.db"
+Environment="AERO_UPLOADS=/srv/aero/data/uploads"
+Environment="AERO_HTTPS=1"
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+
+ExecStart=/srv/aero/venv/bin/gunicorn \
+    --config /srv/aero/deploy/gunicorn.conf.py \
+    wsgi:app
+
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+Restart=always
+RestartSec=3
+
+# Ограничения безопасности: процессу нечего делать вне своей папки
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/aero/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aero
+
+[Install]
+WantedBy=multi-user.target

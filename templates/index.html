@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% import "_card.html" as card %}
+{% block title %}{{ S.club_name }}{% endblock %}
+
+{% block body %}
+
+<section class="hero">
+  <p class="eyebrow">Авиамодельный клуб</p>
+  <h1>Волгодонск</h1>
+  <p class="lead">Новости клуба, расписание тренировок и достижения наших
+    спортсменов и тренеров.</p>
+</section>
+
+<section class="sec">
+  <div class="sec-head">
+    <h2>Новости</h2>
+    <a href="{{ url_for('news_list') }}">Все новости →</a>
+  </div>
+  {% if news %}
+  <div class="grid g3">
+    {% for n in news %}
+    <a class="card card-link" href="{{ url_for('news_item', slug=n.slug) }}">
+      {{ card.cover(n) }}
+      <div class="meta">{{ news_date(n.created_at) }}</div>
+      <h3>{{ n.title }}</h3>
+      {% if n.summary %}<p>{{ n.summary }}</p>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">Пока нет новостей</div>
+  {% endif %}
+</section>
+
+<section class="sec">
+  <div class="sec-head">
+    <h2>Ближайшие тренировки</h2>
+    <a href="{{ url_for('schedule') }}">Всё расписание →</a>
+  </div>
+  <div class="panel">
+    {% if events %}
+      {% for e in events %}
+      <div class="ev">
+        <div class="ev-date">
+          <div class="d">{{ ev_day(e.starts_at) }}</div>
+          <div class="m">{{ ev_mon(e.starts_at) }}</div>
+          <div class="w">{{ ev_weekday(e.starts_at) }}</div>
+        </div>
+        <div class="ev-body">
+          <div class="t">{{ e.title }}</div>
+          <div class="ev-meta">
+            <span class="ev-time">{{ ev_span(e) }}</span>
+            {% if e.place %}<span>{{ e.place }}</span>{% endif %}
+            {% if e.coach %}<span class="sep">·</span><span>{{ e.coach }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Расписание пока не составлено</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="sec">
+  <div class="sec-head">
+    <h2>Команда</h2>
+    <a href="{{ url_for('team') }}">Все участники →</a>
+  </div>
+  {% if people %}
+  <div class="grid g2">
+    {% for p in people[:4] %}
+    <a class="person card-link" href="{{ url_for('profile', uid=p.id) }}">
+      <div class="ava">
+        {% if p.photo %}<img src="/uploads/{{ p.photo }}" alt="">
+        {% else %}{{ p.full_name[:1] }}{% endif %}
+      </div>
+      <div>
+        <div class="n">{{ p.full_name }}</div>
+        <div class="r">{{ p.title or 'Участник клуба' }}</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">Участники ещё не добавлены</div>
+  {% endif %}
+</section>
+
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Редактор — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<div class="sec-head">
+  <h1>Новости</h1>
+  <a class="btn" href="{{ url_for('news_new') }}">+ Написать</a>
+</div>
+
+<div class="panel" style="margin-top:22px">
+  {% if news %}
+  <table class="tbl">
+    <thead>
+      <tr><th>Заголовок</th><th>Дата</th><th>Автор</th><th>Статус</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for n in news %}
+      <tr>
+        <td><a href="{{ url_for('news_edit', nid=n.id) }}"><b>{{ n.title }}</b></a></td>
+        <td class="dim">{{ fmt_dt(n.created_at, with_time=False) }}</td>
+        <td class="dim">{{ n.author or '—' }}</td>
+        <td>{% if n.published %}Опубликовано{% else %}<span class="dim">Черновик</span>{% endif %}</td>
+        <td style="text-align:right;white-space:nowrap">
+          <form method="post" action="{{ url_for('news_set_published', nid=n.id, state=0 if n.published else 1) }}" style="display:inline">
+            <input type="hidden" name="next" value="list">
+            <button class="btn sm{{ ' ghost2' if n.published else '' }}" type="submit">{{ 'В черновик' if n.published else 'Опубликовать' }}</button>
+          </form>
+          <form method="post" action="{{ url_for('news_delete', nid=n.id) }}" style="display:inline"
+                onsubmit="return confirm('Удалить новость?')">
+            <button class="btn danger sm" type="submit">Удалить</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Новостей ещё нет</div>
+  {% endif %}
+</div>
+{% endblock %}

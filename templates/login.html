@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Вход — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<div class="form" style="margin:40px auto">
+  <h1>Вход</h1>
+  <p class="lead">Телефон или почта, указанные при регистрации</p>
+
+  <form method="post" style="margin-top:28px">
+    <div class="field">
+      <label for="ident">Телефон или почта</label>
+      <input type="text" id="ident" name="ident" required autofocus
+             placeholder="+7 900 000-00-00">
+    </div>
+    <div class="field">
+      <label for="password">Пароль</label>
+      <input type="password" id="password" name="password" required>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Войти</button>
+      <a href="{{ url_for('register') }}" class="dim" style="font-size:13px">
+        Ещё нет аккаунта?</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

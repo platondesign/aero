@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Запись на тренировку — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<p><a href="{{ url_for('admin_events') }}" class="dim" style="font-size:13px">
+  ← Все тренировки</a></p>
+
+<h1 style="margin-top:14px">{{ ev.title }}</h1>
+<p class="lead">
+  {{ fmt_dt(ev.starts_at) }}{% if ev.ends_at %} — {{ fmt_dt(ev.ends_at) }}{% endif %}
+  {% if ev.place %} · {{ ev.place }}{% endif %}
+  {% if ev.coach %} · тренер {{ ev.coach }}{% endif %}
+</p>
+
+<div class="panel" style="margin-top:26px">
+  <h2>
+    Записались: {{ people|length }}
+    {% if ev.capacity %} из {{ ev.capacity }}{% endif %}
+  </h2>
+
+  {% if people %}
+  <table class="tbl">
+    <thead>
+      <tr><th>Фото</th><th>Имя</th><th>Записался</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for p in people %}
+      <tr>
+        <td style="width:46px">
+          <div class="ava sm">
+            {% if p.photo %}<img src="/uploads/{{ p.photo }}" alt="">
+            {% else %}{{ p.full_name[:1] }}{% endif %}
+          </div>
+        </td>
+        <td><a href="{{ url_for('profile', uid=p.id) }}"><b>{{ p.full_name }}</b></a>
+          {% if p.title %}<span class="dim" style="font-size:12px"> · {{ p.title }}</span>{% endif %}
+        </td>
+        <td class="dim" style="font-size:12.5px">
+          {{ fmt_dt(p.signed_at, with_time=False) }}
+        </td>
+        <td style="text-align:right">
+          <form method="post"
+                action="{{ url_for('admin_signup_delete', eid=ev.id, sid=p.signup_id) }}"
+                onsubmit="return confirm('Снять {{ p.full_name }} с записи?')">
+            <button class="btn danger sm" type="submit">Снять</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">Пока никто не записался</div>
+  {% endif %}
+</div>
+
+<div class="panel" style="margin-top:16px">
+  <h2>Изменить тренировку</h2>
+  <form method="post" action="{{ url_for('admin_event_save') }}">
+    <input type="hidden" name="id" value="{{ ev.id }}">
+    <div class="row">
+      <div class="field">
+        <label>Название</label>
+        <input type="text" name="title" value="{{ ev.title }}" required>
+      </div>
+      <div class="field" style="flex:0 0 150px">
+        <label>Мест</label>
+        <input type="number" name="capacity" min="0"
+               value="{{ ev.capacity or '' }}" placeholder="без ограничения">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Начало</label>
+        <input type="datetime-local" name="starts_at" value="{{ ev.starts_at }}" required>
+      </div>
+      <div class="field">
+        <label>Окончание</label>
+        <input type="datetime-local" name="ends_at" value="{{ ev.ends_at or '' }}">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Место</label>
+        <input type="text" name="place" value="{{ ev.place or '' }}">
+      </div>
+      <div class="field">
+        <label>Группа</label>
+        <input type="text" name="group_name" value="{{ ev.group_name or '' }}">
+      </div>
+    </div>
+    <div class="field">
+      <label>Заметка</label>
+      <input type="text" name="note" value="{{ ev.note or '' }}">
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Сохранить</button>
+    </div>
+  </form>
+</div>
+
+<style>
+  .ava.sm{width:34px;height:34px;font-size:13px}
+</style>
+{% endblock %}

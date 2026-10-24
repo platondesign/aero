@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}О клубе — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<h1>О клубе</h1>
+
+{% if S.about_text %}
+<div class="about-text">{{ S.about_text }}</div>
+{% else %}
+<p class="lead">Авиамодельный клуб в Волгодонске. Здесь строят, настраивают
+  и запускают модели самолётов — от первых кордовых до спортивных классов
+  F2B, F2C и F2D.</p>
+{% endif %}
+
+<div class="stat-row">
+  <div><b>{{ stats.people }}</b><span>спортсменов</span></div>
+  <div><b>{{ stats.models }}</b><span>моделей в парке</span></div>
+  <div><b>{{ stats.awards }}</b><span>наград</span></div>
+  <div><b>{{ stats.news }}</b><span>новостей</span></div>
+</div>
+
+<div class="split" style="margin-top:34px">
+  <div class="panel">
+    <h2>Как к нам попасть</h2>
+    {% if S.join_text %}
+      <p class="soft-text">{{ S.join_text }}</p>
+    {% else %}
+      <p class="soft-text">Приходите на тренировку — посмотрите, как всё
+        устроено, и познакомьтесь с тренерами. Опыт не нужен: научим
+        с нуля.</p>
+    {% endif %}
+
+    <div class="contacts">
+      {% if S.meeting_place %}
+      <div><span class="lbl">Где собираемся</span>{{ S.meeting_place }}</div>
+      {% endif %}
+      {% if S.contact_phone %}
+      <div><span class="lbl">Телефон</span>
+        <a href="tel:{{ S.contact_phone | replace(' ','') }}">{{ S.contact_phone }}</a>
+      </div>
+      {% endif %}
+      {% if S.contact_email %}
+      <div><span class="lbl">Почта</span>
+        <a href="mailto:{{ S.contact_email }}">{{ S.contact_email }}</a>
+      </div>
+      {% endif %}
+      {% if S.contact_address %}
+      <div><span class="lbl">Адрес</span>{{ S.contact_address }}</div>
+      {% endif %}
+    </div>
+
+    {% if not user %}
+    <div class="actions" style="margin-top:20px">
+      <a class="btn" href="{{ url_for('register') }}">Подать заявку</a>
+      <a href="{{ url_for('login') }}" class="dim" style="font-size:13px">Уже с нами</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Тренеры</h2>
+    {% if coaches %}
+      {% for p in coaches %}
+      <a class="person card-link" href="{{ url_for('profile', uid=p.id) }}"
+         style="border:0;padding:10px 0">
+        <div class="ava">
+          {% if p.photo %}<img src="/uploads/{{ p.photo }}" alt="">
+          {% else %}{{ p.full_name[:1] }}{% endif %}
+        </div>
+        <div>
+          <div class="n">{{ p.full_name }}</div>
+          <div class="r">{{ p.title or 'Тренер' }}</div>
+        </div>
+      </a>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Тренеры не указаны</div>
+    {% endif %}
+
+    <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:16px">
+      <a href="{{ url_for('team') }}" class="dim" style="font-size:13px">
+        Вся команда →</a>
+    </div>
+  </div>
+</div>
+
+<style>
+  .about-text{margin-top:18px;max-width:70ch;font-size:16px;line-height:1.75;
+    white-space:pre-wrap}
+  .soft-text{font-size:14.5px;line-height:1.7;color:var(--dim);
+    white-space:pre-wrap}
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
+    margin-top:30px}
+  .stat-row div{background:#fff;border:1px solid var(--line);border-radius:11px;
+    padding:16px 12px;text-align:center}
+  .stat-row b{display:block;font-family:'JetBrains Mono',monospace;
+    font-size:22px;line-height:1.1}
+  .stat-row span{font-size:10.5px;color:var(--dim);text-transform:uppercase;
+    letter-spacing:.06em}
+  .contacts{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
+  .contacts div{font-size:14px;padding:6px 0}
+  .contacts .lbl{display:block;font-size:10.5px;color:var(--dim);
+    text-transform:uppercase;letter-spacing:.08em;margin-bottom:1px}
+  .contacts a:hover{color:var(--accent)}
+  @media(max-width:700px){
+    .stat-row{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}Расписание — управление{% endblock %}
+
+{% block body %}
+<h1>Управление клубом</h1>
+
+<nav class="subtabs">
+  <a href="{{ url_for('admin') }}">Люди</a>
+  <a href="{{ url_for('admin_events') }}" class="on">Расписание</a>
+  <a href="{{ url_for('admin_awards') }}">Награды</a>
+  <a href="{{ url_for('admin_about') }}">О клубе</a>
+</nav>
+
+<section class="sec">
+  <div class="sec-head"><h2>Добавить тренировку</h2></div>
+  <div class="panel">
+    <form method="post" action="{{ url_for('admin_event_save') }}">
+      <div class="row">
+        <div class="field">
+          <label>Название</label>
+          <input type="text" name="title" required placeholder="Тренировка группы F2D">
+        </div>
+        <div class="field" style="flex:0 0 150px">
+          <label>Группа</label>
+          <input type="text" name="group_name" placeholder="Основная">
+        </div>
+        <div class="field" style="flex:0 0 120px">
+          <label>Мест</label>
+          <input type="number" name="capacity" min="0" placeholder="без лимита">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Начало</label>
+          <input type="datetime-local" name="starts_at" required>
+        </div>
+        <div class="field">
+          <label>Окончание</label>
+          <input type="datetime-local" name="ends_at">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Место</label>
+          <input type="text" name="place" placeholder="Аэродром Волгодонск">
+        </div>
+        <div class="field">
+          <label>Тренер</label>
+          <select name="coach_id">
+            <option value="">— не указан —</option>
+            {% for c in coaches %}
+            <option value="{{ c.id }}">{{ c.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Заметка</label>
+        <input type="text" name="note" placeholder="Взять запасные винты">
+      </div>
+
+      <div class="repeat">
+        <div class="field" style="margin-bottom:0">
+          <label for="repeat">Повторять</label>
+          <select name="repeat" id="repeat">
+            {% for key, label in repeat_modes.items() %}
+            <option value="{{ key }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field repeat-until" style="margin-bottom:0;flex:0 0 200px">
+          <label for="repeat_until">До какой даты</label>
+          <input type="date" name="repeat_until" id="repeat_until">
+        </div>
+
+        <div class="field repeat-days" style="margin-bottom:0;flex:1 1 100%">
+          <label>Дни недели</label>
+          <div class="daypick">
+            {% for i in range(7) %}
+            <label class="day">
+              <input type="checkbox" name="repeat_days" value="{{ i }}"
+                     {{ 'checked' if i == 1 }}>
+              <span>{{ weekday_names[i] }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <p class="repeat-hint" id="repeat-hint">
+        Одна тренировка — одно занятие.
+      </p>
+
+      <div class="actions"><button class="btn" type="submit">Добавить</button></div>
+    </form>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="sec-head"><h2>Все тренировки</h2></div>
+  <div class="panel">
+    {% if events %}
+    <table class="tbl">
+      <thead>
+        <tr><th>Когда</th><th>Название</th><th>Место</th><th>Тренер</th>
+            <th>Записались</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for e in events %}
+        <tr>
+          <td style="white-space:nowrap">
+            {{ fmt_dt(e.starts_at) }}
+            {% if e.series_id %}
+            <a href="{{ url_for('admin_series', sid=e.series_id) }}"
+               class="series-tag" title="Изменить всю серию">
+              серия · {{ series_size.get(e.series_id, 1) }} →
+            </a>
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('admin_event_save') }}"
+                  style="display:flex;gap:6px;align-items:center">
+              <input type="hidden" name="id" value="{{ e.id }}">
+              <input type="text" name="title" value="{{ e.title }}"
+                     style="min-width:140px;font-size:13px;padding:6px 8px">
+              <input type="hidden" name="starts_at" value="{{ e.starts_at }}">
+              <input type="hidden" name="ends_at" value="{{ e.ends_at or '' }}">
+              <input type="hidden" name="place" value="{{ e.place or '' }}">
+              <input type="hidden" name="group_name" value="{{ e.group_name or '' }}">
+              <input type="hidden" name="note" value="{{ e.note or '' }}">
+              <input type="hidden" name="coach_id" value="{{ e.coach_id or '' }}">
+              <input type="hidden" name="capacity" value="{{ e.capacity or '' }}">
+              <button class="btn ghost2 sm" type="submit">ОК</button>
+            </form>
+          </td>
+          <td class="dim" style="font-size:13px">{{ e.place or '—' }}</td>
+          <td class="dim" style="font-size:13px">{{ e.coach or '—' }}</td>
+          <td>
+            <a href="{{ url_for('admin_event_detail', eid=e.id) }}"
+               class="cnt">{{ counts.get(e.id, 0) }}{% if e.capacity %} / {{ e.capacity }}{% endif %}</a>
+          </td>
+          <td style="text-align:right;white-space:nowrap">
+            <form method="post" action="{{ url_for('admin_event_delete', eid=e.id) }}"
+                  onsubmit="return confirm('Удалить это занятие?')">
+              <input type="hidden" name="scope" value="one">
+              <button class="btn danger sm" type="submit">Удалить</button>
+            </form>
+            {% if e.series_id and series_size.get(e.series_id, 1) > 1 %}
+            <form method="post" action="{{ url_for('admin_event_delete', eid=e.id) }}"
+                  style="display:inline"
+                  onsubmit="return confirm('Удалить ВСЮ серию — {{ series_size.get(e.series_id, 1) }} занятий?{% if series_signups.get(e.series_id) %} Вместе с ними пропадут {{ series_signups.get(e.series_id) }} записей участников.{% endif %} Это необратимо.')">
+              <input type="hidden" name="scope" value="series">
+              <button class="btn ghost2 sm" type="submit">Всю серию</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Тренировок ещё нет</div>
+    {% endif %}
+  </div>
+</section>
+<style>
+  .cnt{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;
+    background:var(--soft);padding:3px 9px;border-radius:6px;color:var(--dim)}
+  .cnt:hover{background:var(--ink);color:#fff}
+
+  /* блок повтора */
+  .repeat{
+    display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;
+    margin-top:6px;padding:14px 16px;border-radius:9px;
+    background:var(--soft);border:1px solid var(--line);
+  }
+  .repeat .field{flex:0 0 200px}
+  .repeat-days{display:none}
+  .repeat-until{display:none}
+  .repeat.on .repeat-days,.repeat.on .repeat-until{display:block}
+
+  .daypick{display:flex;gap:5px;flex-wrap:wrap}
+  .day{cursor:pointer}
+  .day input{display:none}
+  .day span{
+    display:flex;align-items:center;justify-content:center;
+    width:38px;height:34px;border-radius:7px;font-size:12.5px;
+    font-weight:600;text-transform:lowercase;
+    background:#fff;border:1px solid var(--line);color:var(--dim);
+    transition:all .12s;
+  }
+  .day input:checked + span{
+    background:var(--ink);border-color:var(--ink);color:#fff;
+  }
+  .day:hover span{border-color:#cfc9bf}
+
+  .repeat-hint{font-size:12.5px;color:var(--dim);margin-top:9px}
+  .repeat-hint b{color:var(--ink)}
+
+  .series-tag{
+    display:inline-block;margin-top:3px;font-size:9.5px;
+    font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+    color:#2f5e8a;background:#eaf0f7;border-radius:4px;padding:2px 7px;
+    transition:background .12s,color .12s;
+  }
+  .series-tag:hover{background:#2f5e8a;color:#fff}
+  @media(max-width:600px){
+    .repeat{padding:12px}
+    .repeat .field{flex:1 1 100%}
+    .day span{width:34px;height:32px;font-size:12px}
+  }
+</style>
+
+<script>
+(function () {
+  var sel   = document.getElementById('repeat');
+  var box   = document.querySelector('.repeat');
+  var hint  = document.getElementById('repeat-hint');
+  var until = document.getElementById('repeat_until');
+  if (!sel || !box) return;
+
+  function update() {
+    var mode = sel.value;
+    box.classList.toggle('on', mode !== 'none');
+
+    if (mode === 'none') {
+      hint.innerHTML = 'Одна тренировка — одно занятие.';
+    } else if (mode === 'weekdays') {
+      hint.innerHTML = 'Занятия встанут на отмеченные дни недели ' +
+                       'с даты начала и до даты окончания.';
+    } else {
+      var word = mode === 'daily' ? 'каждый день'
+               : mode === 'weekly' ? 'каждую неделю'
+               : 'раз в две недели';
+      hint.innerHTML = 'Занятия будут повторяться <b>' + word +
+                       '</b>, пока не закончится период.';
+    }
+  }
+
+  sel.addEventListener('change', update);
+  update();
+
+  // удобно: если дата начала заполнена, предложить конец сезона
+  var start = document.querySelector('input[name="starts_at"]');
+  if (start && until) {
+    start.addEventListener('change', function () {
+      if (until.value || !start.value) return;
+      var d = new Date(start.value);
+      d.setMonth(d.getMonth() + 9);          // учебный сезон ≈ 9 месяцев
+      until.value = d.toISOString().slice(0, 10);
+    });
+  }
+})();
+</script>
+{% endblock %}

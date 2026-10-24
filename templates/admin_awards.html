@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Награды — управление{% endblock %}
+
+{% block body %}
+<h1>Управление клубом</h1>
+
+<nav class="subtabs">
+  <a href="{{ url_for('admin') }}">Люди</a>
+  <a href="{{ url_for('admin_events') }}">Расписание</a>
+  <a href="{{ url_for('admin_awards') }}" class="on">Награды</a>
+  <a href="{{ url_for('admin_about') }}">О клубе</a>
+</nav>
+
+<section class="sec">
+  <div class="sec-head"><h2>Добавить награду</h2></div>
+  <div class="panel">
+    <form method="post" action="{{ url_for('admin_award_save') }}">
+      <div class="row">
+        <div class="field">
+          <label>Спортсмен</label>
+          <select name="user_id" required>
+            <option value="">— выберите —</option>
+            {% for p in people %}
+            <option value="{{ p.id }}">{{ p.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field" style="flex:0 0 110px">
+          <label>Год</label>
+          <input type="number" name="year" min="1990" max="2100"
+                 value="{{ now.year }}">
+        </div>
+        <div class="field" style="flex:0 0 130px">
+          <label>Место</label>
+          <select name="place">
+            <option value="">—</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Награда</label>
+        <input type="text" name="title" required
+               placeholder="1 место, класс F2D">
+      </div>
+
+      <div class="field">
+        <label>Соревнование</label>
+        <input type="text" name="event_name" placeholder="Кубок Дона">
+      </div>
+
+      <div class="actions"><button class="btn" type="submit">Добавить</button></div>
+    </form>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="sec-head"><h2>Все награды</h2></div>
+  <div class="panel">
+    {% if awards %}
+    <table class="tbl">
+      <thead>
+        <tr><th>Год</th><th>Спортсмен</th><th>Награда</th><th>Соревнование</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for a in awards %}
+        <tr>
+          <td class="dim">{{ a.year or '—' }}</td>
+          <td><a href="{{ url_for('profile', uid=a.user_id) }}">{{ a.who }}</a></td>
+          <td>
+            {% if a.place and a.place <= 3 %}
+              <span class="medal p{{ a.place }}"
+                    style="display:inline-flex;width:22px;height:22px;
+                           font-size:11px;vertical-align:middle">{{ a.place }}</span>
+            {% endif %}
+            {{ a.title }}
+          </td>
+          <td class="dim" style="font-size:13px">{{ a.event_name or '—' }}</td>
+          <td style="text-align:right">
+            <form method="post" action="{{ url_for('admin_award_delete', aid=a.id) }}"
+                  onsubmit="return confirm('Удалить награду?')">
+              <button class="btn danger sm" type="submit">Удалить</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Наград ещё нет</div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

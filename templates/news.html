@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "_card.html" as card %}
+{% block title %}Новости — {{ S.club_name }}{% endblock %}
+
+{% block body %}
+<h1>Новости</h1>
+<p class="lead">Что происходит в клубе</p>
+
+<div class="sec">
+  {% if news %}
+  <div class="grid g3">
+    {% for n in news %}
+    <a class="card card-link" href="{{ url_for('news_item', slug=n.slug) }}">
+      {{ card.cover(n) }}
+      <div class="meta">{{ news_date(n.created_at) }}</div>
+      <h3>{{ n.title }}</h3>
+      {% if n.summary %}<p>{{ n.summary }}</p>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">Пока нет новостей</div>
+  {% endif %}
+</div>
+{% endblock %}
