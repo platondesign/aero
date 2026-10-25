@@ -1,0 +1,9 @@
+data/
+private/
+venv/
+__pycache__/
+*.pyc
+*.db
+*.key
+.env
+УСТАНОВКА.txt
