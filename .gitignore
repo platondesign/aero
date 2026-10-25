@@ -7,3 +7,4 @@ __pycache__/
 *.key
 .env
 УСТАНОВКА.txt
+*.tar.gz
