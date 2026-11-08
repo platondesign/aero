@@ -131,6 +131,8 @@
               <button class="btn sm" type="submit">Одобрить</button>
             </form>
             {% endif %}
+            <a class="btn ghost2 sm" href="{{ url_for('admin_user_edit', uid=p.id) }}"
+               title="Заполнить профиль и модели за человека">Редактировать</a>
             <form method="post"
                   action="{{ url_for('admin_reset_password', uid=p.id) }}"
                   style="display:inline"

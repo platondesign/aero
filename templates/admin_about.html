@@ -113,6 +113,54 @@
 </section>
 
 <section class="sec">
+  <div class="sec-head"><h2>Превью для соцсетей</h2></div>
+  <div class="panel">
+    <p class="dim" style="font-size:13.5px;line-height:1.8;margin-bottom:16px">
+      Эти две настройки отвечают за то, как ссылка на сайт выглядит в Telegram,
+      WhatsApp и ВКонтакте: заголовок, описание и картинка. Без картинки
+      мессенджер показывает серую плашку.
+    </p>
+    <form method="post" enctype="multipart/form-data" class="form"
+          style="max-width:100%">
+      <input type="hidden" name="section" value="share">
+
+      <div class="field">
+        <label for="site_url">Адрес сайта</label>
+        <input type="text" id="site_url" name="site_url"
+               value="{{ cfg.site_url }}" placeholder="aero-vlg.ru">
+        <div class="hint">Без слэша на конце. Нужен, чтобы ссылки в превью были
+          полными. Если оставить пустым — возьмётся адрес из запроса.</div>
+      </div>
+
+      <div class="field">
+        <label for="og_image_file">Картинка превью</label>
+        <input type="file" id="og_image_file" name="og_image_file" accept="image/*">
+        <div class="hint">Горизонтальная, лучше 1200×630. Именно её увидят
+          в Telegram и WhatsApp. Если не загружать — покажется иконка сайта.</div>
+      </div>
+
+      {% if cfg.og_image %}
+      <div style="margin:0 0 16px">
+        <img src="/uploads/{{ cfg.og_image }}" alt="Текущее превью"
+             style="max-width:420px;width:100%;border-radius:10px;
+                    border:1px solid var(--line);display:block">
+      </div>
+      <div class="field">
+        <label style="display:flex;gap:8px;align-items:center;font-weight:400">
+          <input type="checkbox" name="og_clear" value="1" style="width:auto">
+          Убрать картинку
+        </label>
+      </div>
+      {% endif %}
+
+      <div class="actions">
+        <button class="btn" type="submit">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="sec">
   <div class="sec-head"><h2>Подсказка</h2></div>
   <div class="panel">
     <p class="dim" style="font-size:13.5px;line-height:1.8">

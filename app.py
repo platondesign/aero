@@ -24,7 +24,7 @@ from functools import wraps
 
 from flask import (Flask, g, render_template, request, redirect, url_for,
                    session, flash, abort, send_from_directory, send_file)
-from markupsafe import Markup
+from markupsafe import Markup, escape
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -96,12 +96,31 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST
 
+# ─── сессия ───────────────────────────────────────────────────────────────────
+# Без PERMANENT_SESSION_LIFETIME Flask ставит cookie «до закрытия браузера»,
+# и после перезапуска браузера или телефона вход теряется. Делаем сессию
+# постоянной на 30 дней; срок продлевается при каждом заходе.
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+app.config["SESSION_REFRESH_EACH_REQUEST"] = True
+app.config["SESSION_COOKIE_NAME"] = "aero_session"
+
 # За nginx: доверяем одному прокси, чтобы видеть настоящий IP
 # посетителя и понимать, что запрос пришёл по HTTPS.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 if os.environ.get("AERO_HTTPS", "1") == "1":
     app.config["SESSION_COOKIE_SECURE"] = True
+
+
+@app.before_request
+def keep_session_alive():
+    """Продлевать вход при каждом заходе.
+
+    Флаг permanent ставится только для вошедших: анонимам постоянная cookie
+    не нужна.
+    """
+    if session.get("uid"):
+        session.permanent = True
 
 
 # ─────────────────────────────────────────────────────────── база
@@ -236,8 +255,8 @@ def init_db():
     существующие данные не трогаются. Так обновление версии
     не требует удалять базу.
     """
-    os.makedirs(os.path.join(UPLOAD_DIR, "news"), exist_ok=True)
-    os.makedirs(os.path.join(UPLOAD_DIR, "people"), exist_ok=True)
+    for sub in ("news", "people", "share"):
+        os.makedirs(os.path.join(UPLOAD_DIR, sub), exist_ok=True)
 
     db = sqlite3.connect(DB_PATH)
     db.executescript(SCHEMA)
@@ -316,6 +335,15 @@ def save_image(storage, kind, square=None, max_side=1600, quality=85):
     name = secrets.token_hex(12) + ".jpg"
     rel = kind + "/" + name
     full = os.path.join(UPLOAD_DIR, kind, name)
+
+    # Папка под новый вид фото («share» и т.п.) может ещё не существовать —
+    # init_db() готовит только news и people. Создаём на месте, иначе загрузка
+    # падает с непонятным «не удалось сохранить изображение».
+    try:
+        os.makedirs(os.path.join(UPLOAD_DIR, kind), exist_ok=True)
+    except OSError:
+        return None, "не удалось создать папку для фото"
+
     try:
         im.save(full, "JPEG", quality=quality, optimize=True,
                 progressive=True)
@@ -528,6 +556,8 @@ SETTING_DEFAULTS = {
     "contact_email": "",
     "contact_address": "",
     "meeting_place": "",
+    "site_url": "",
+    "og_image": "",
 }
 
 
@@ -573,6 +603,106 @@ def safe_back(fallback):
     if back.startswith("/") and not back.startswith("//"):
         return back
     return fallback
+
+
+# ─── адреса и метатеги для соцсетей ──────────────────────────────────────────
+
+def base_url():
+    """Внешний адрес сайта: из настроек или из текущего запроса.
+
+    Нужен для абсолютных ссылок в og: и sitemap.xml — мессенджеры
+    не понимают относительные пути.
+    """
+    cfg_url = (get_settings().get("site_url") or "").strip().rstrip("/")
+    if cfg_url:
+        if not cfg_url.startswith(("http://", "https://")):
+            cfg_url = "https://" + cfg_url
+        return cfg_url
+    return request.url_root.rstrip("/")
+
+
+def abs_url(path):
+    """Сделать адрес абсолютным."""
+    if not path:
+        return ""
+    if path.startswith(("http://", "https://")):
+        return path
+    return base_url() + ("" if path.startswith("/") else "/") + path
+
+
+def og_image_url():
+    """Картинка для превью в мессенджерах.
+
+    Берётся из настроек («О клубе» -> «Превью для соцсетей»), иначе — иконка
+    приложения, чтобы ссылка никогда не разворачивалась в пустую заглушку.
+    """
+    name = (get_settings().get("og_image") or "").strip()
+    if name:
+        return abs_url("/uploads/" + name.lstrip("/"))
+    return abs_url(url_for("static", filename="icon-512.png"))
+
+
+def og_image_size():
+    """Реальные размеры картинки превью.
+
+    Мессенджеры верят og:image:width/height и обрезают картинку под эти цифры.
+    Поэтому пишем настоящие, а не заглушку 1200×630.
+    """
+    name = (get_settings().get("og_image") or "").strip()
+    if name:
+        path = os.path.join(UPLOAD_DIR, name.lstrip("/"))
+    else:
+        path = os.path.join(BASE_DIR, "static", "icon-512.png")
+
+    if PIL_OK:
+        try:
+            with Image.open(path) as im:
+                return im.size
+        except (OSError, ValueError):
+            pass
+    return (1200, 630) if name else (512, 512)
+
+
+def clip(text, limit=200):
+    """Обрезать текст описания по границе слова."""
+    text = " ".join((text or "").split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0]
+    return (cut or text[:limit]).rstrip(",.;:—-– ") + "…"
+
+
+def meta_for(title=None, description=None, image=None, url=None, kind="website"):
+    """Собрать метатеги страницы.
+
+    Сами теги рисует base.html — здесь только значения. Каждая страница может
+    передать свои заголовок и картинку, остальные берут общие из настроек.
+    """
+    cfg = get_settings()
+    club = cfg.get("club_name") or CLUB_NAME_DEFAULT
+    city = cfg.get("club_city") or CLUB_CITY_DEFAULT
+
+    # Запасной вариант описания: если в админке пусто, всё равно нужен
+    # осмысленный текст, иначе мессенджер покажет ссылку без подписи.
+    fallback = ("%s — новости, расписание тренировок, команда и достижения. "
+                "Авиамодельный спорт в %s." % (club, city))
+
+    img = image or og_image_url()
+    if image:
+        w, h = 1200, 630
+    else:
+        w, h = og_image_size()
+
+    return {
+        "title": (title or club).strip(),
+        "description": clip(description or cfg.get("about_text") or fallback),
+        "image": img,
+        "image_w": w,
+        "image_h": h,
+        "url": url or abs_url(request.path),
+        "type": kind,
+        "site_name": club,
+    }
 
 
 def roles_of(user_id):
@@ -643,6 +773,7 @@ def inject():
         "ev_weekday": ev_weekday,
         "ev_span": ev_span,
         "now": datetime.now(),
+        "meta": meta_for(),
     }
 
 
@@ -672,7 +803,8 @@ def index():
         WHERE r.role IN ('coach','athlete') AND u.is_approved = 1
         ORDER BY u.full_name
     """).fetchall()
-    return render_template("index.html", news=news, events=events, people=people)
+    return render_template("index.html", news=news, events=events,
+                           people=people, meta=meta_for())
 
 
 @app.route("/news")
@@ -686,7 +818,11 @@ def news_list():
         WHERE n.published = 1
         ORDER BY n.created_at DESC
     """).fetchall()
-    return render_template("news.html", news=rows)
+    return render_template("news.html", news=rows,
+                           meta=meta_for(
+                               title="Новости — %s" % get_settings()["club_name"],
+                               description="Новости авиамодельного клуба: соревнования, "
+                                           "тренировки и жизнь команды."))
 
 
 @app.route("/news/<slug>")
@@ -698,8 +834,16 @@ def news_item(slug):
     """, (slug,)).fetchone()
     if not row:
         abort(404)
+    cover = cover_of(row["id"])
     return render_template("news_item.html", item=row,
-                           photos=photos_for(row["id"]))
+                           photos=photos_for(row["id"]),
+                           meta=meta_for(
+                               title="%s — %s" % (row["title"],
+                                                  get_settings()["club_name"]),
+                               description=row["summary"] or row["body"],
+                               image=abs_url("/uploads/" + cover) if cover else None,
+                               url=abs_url(url_for("news_item", slug=row["slug"])),
+                               kind="article"))
 
 
 @app.route("/schedule")
@@ -735,7 +879,11 @@ def schedule():
 
     return render_template("schedule.html", upcoming=shown, rest=rest,
                            rest_word=rest_word, total=len(upcoming),
-                           past=past, counts=counts, mine=mine)
+                           past=past, counts=counts, mine=mine,
+                           meta=meta_for(
+                               title="Расписание тренировок — %s" % get_settings()["club_name"],
+                               description="Ближайшие тренировки и занятия "
+                                           "авиамодельного клуба."))
 
 
 @app.route("/events/<int:eid>/join", methods=["POST"])
@@ -798,7 +946,9 @@ def about():
         "awards": db.execute("SELECT COUNT(*) c FROM awards").fetchone()["c"],
         "models": db.execute("SELECT COUNT(*) c FROM aircraft").fetchone()["c"],
     }
-    return render_template("about.html", coaches=coaches, stats=stats)
+    return render_template("about.html", coaches=coaches, stats=stats,
+                           meta=meta_for(
+                               title="О клубе — %s" % get_settings()["club_name"]))
 
 
 @app.route("/team")
@@ -823,7 +973,11 @@ def team():
         people.append(p)
     coaches = [p for p in people if "coach" in p["roles"]]
     athletes = [p for p in people if "athlete" in p["roles"]]
-    return render_template("team.html", coaches=coaches, athletes=athletes)
+    return render_template("team.html", coaches=coaches, athletes=athletes,
+                           meta=meta_for(
+                               title="Команда — %s" % get_settings()["club_name"],
+                               description="Тренерский состав и спортсмены "
+                                           "авиамодельного клуба."))
 
 
 @app.route("/u/<int:uid>")
@@ -854,9 +1008,18 @@ def profile(uid):
         for s in STATUSES:
             by_status[s] = sum(1 for a in fleet if a["status"] == s)
 
+    photo = person.get("photo")
     return render_template("profile.html", person=person, awards=awards,
                            fleet=fleet, by_status=by_status,
-                           can_see_fleet=can_see_fleet, is_owner=is_owner)
+                           can_see_fleet=can_see_fleet, is_owner=is_owner,
+                           meta=meta_for(
+                               title="%s — %s" % (person["full_name"],
+                                                  get_settings()["club_name"]),
+                               description=person.get("bio") or person.get("title")
+                                           or "Участник авиамодельного клуба.",
+                               image=abs_url("/uploads/" + photo) if photo else None,
+                               url=abs_url(url_for("profile", uid=uid)),
+                               kind="profile"))
 
 
 # ─────────────────────────────────────────────────────────── вход
@@ -875,6 +1038,7 @@ def login():
                 flash("Заявка ещё не одобрена администратором", "warn")
                 return render_template("login.html")
             session.clear()
+            session.permanent = True
             session["uid"] = row["id"]
             nxt = request.args.get("next") or url_for("cabinet")
             return redirect(nxt)
@@ -1980,6 +2144,43 @@ def admin_award_delete(aid):
 def admin_about():
     db = get_db()
     if request.method == "POST":
+        section = (request.form.get("section") or "").strip()
+
+        # ── превью для соцсетей: сохраняем картинку отдельно от текстов ──
+        if section == "share":
+            site_url = (request.form.get("site_url") or "").strip().rstrip("/")
+            db.execute(
+                "INSERT INTO settings (key, value) VALUES ('site_url', ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (site_url,))
+            db.commit()
+
+            if request.form.get("og_clear"):
+                old = db.execute(
+                    "SELECT value FROM settings WHERE key = 'og_image'"
+                ).fetchone()
+                if old and old["value"]:
+                    delete_image(old["value"])
+                db.execute("DELETE FROM settings WHERE key = 'og_image'")
+                db.commit()
+                flash("Картинка превью убрана", "ok")
+
+            upload = request.files.get("og_image_file")
+            if upload and getattr(upload, "filename", ""):
+                rel, err = save_image(upload, "share", max_side=1200)
+                if err:
+                    flash("Картинка: " + err, "err")
+                else:
+                    db.execute(
+                        "INSERT INTO settings (key, value) VALUES ('og_image', ?) "
+                        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                        (rel,))
+                    db.commit()
+                    flash("Картинка превью обновлена", "ok")
+
+            flash("Настройки превью сохранены", "ok")
+            return redirect(url_for("admin_about"))
+
         save_settings(request.form)
         if (request.form.get("section") or "") == "name":
             name = (request.form.get("club_name") or "").strip()
@@ -2384,6 +2585,84 @@ def admin_backup():
     )
 
 
+# ─── правка чужого профиля (только админ) ───────────────────────────────────
+
+@app.route("/admin/users/<int:uid>/edit", methods=["GET", "POST"])
+@role_required("admin")
+def admin_user_edit(uid):
+    """Заполнить за человека его профиль и парк моделей.
+
+    Нужно тем, кто не может сам: пожилым, детям, у кого нет под рукой
+    интернета. Админ видит те же поля, что в личном кабинете, но для
+    выбранного пользователя. Роли и пароль здесь не меняются — для них
+    отдельные кнопки в «Админе».
+    """
+    db = get_db()
+    row = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+    if not row:
+        abort(404)
+
+    if request.method == "POST":
+        f = request.form
+        action = (f.get("action") or "profile").strip()
+
+        if action == "profile":
+            db.execute("""
+                UPDATE users SET full_name = ?, title = ?, bio = ?,
+                                 birth_date = ?
+                WHERE id = ?
+            """, ((f.get("full_name") or "").strip() or row["full_name"],
+                  (f.get("title") or "").strip(),
+                  (f.get("bio") or "").strip(),
+                  (f.get("birth_date") or "").strip() or None,
+                  uid))
+            db.commit()
+            flash("Профиль %s сохранён" % row["full_name"], "ok")
+
+        elif action == "add_aircraft":
+            name = (f.get("name") or "").strip()
+            cls = (f.get("class_code") or "").strip().upper()
+            st = f.get("status") or "fly"
+            if name and cls:
+                db.execute("""
+                    INSERT INTO aircraft (user_id, name, class_code, status, note)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (uid, name, cls, st if st in STATUSES else "fly",
+                      (f.get("note") or "").strip()))
+                db.commit()
+                flash("Модель добавлена", "ok")
+
+        elif action == "del_aircraft":
+            aid = f.get("aid") or ""
+            if aid.isdigit():
+                db.execute("DELETE FROM aircraft WHERE id = ? AND user_id = ?",
+                           (int(aid), uid))
+                db.commit()
+                flash("Модель удалена", "ok")
+
+        elif action == "status":
+            aid = f.get("aid") or ""
+            st = f.get("status")
+            if aid.isdigit() and st in STATUSES:
+                db.execute("UPDATE aircraft SET status = ? "
+                           "WHERE id = ? AND user_id = ?",
+                           (st, int(aid), uid))
+                db.commit()
+
+        return redirect(url_for("admin_user_edit", uid=uid))
+
+    person = dict(row)
+    person["roles"] = roles_of(uid)
+    fleet = db.execute(
+        "SELECT * FROM aircraft WHERE user_id = ? ORDER BY class_code",
+        (uid,)).fetchall()
+    awards = db.execute(
+        "SELECT * FROM awards WHERE user_id = ? ORDER BY year DESC, place ASC",
+        (uid,)).fetchall()
+    return render_template("admin_user_edit.html", person=person,
+                           fleet=fleet, awards=awards)
+
+
 @app.route("/admin/users/<int:uid>/photo", methods=["POST"])
 @role_required("admin")
 def admin_set_photo(uid):
@@ -2402,6 +2681,22 @@ def admin_set_photo(uid):
         delete_image(row["photo"])
     flash("Фото обновлено", "ok")
     return redirect(url_for("admin"))
+
+
+@app.route("/admin/users/<int:uid>/photo/delete", methods=["POST"])
+@role_required("admin")
+def admin_del_photo(uid):
+    """Убрать чужое фото — например, если загрузили не то."""
+    db = get_db()
+    row = db.execute("SELECT photo FROM users WHERE id = ?", (uid,)).fetchone()
+    if not row:
+        abort(404)
+    db.execute("UPDATE users SET photo = NULL WHERE id = ?", (uid,))
+    db.commit()
+    if row["photo"]:
+        delete_image(row["photo"])
+    flash("Фото удалено", "ok")
+    return redirect(request.form.get("back") or url_for("admin"))
 
 
 # ─────────────────────────────────────────────────────────── PWA
@@ -2460,12 +2755,94 @@ def service_worker():
 
 @app.route("/privacy")
 def privacy():
-    return render_template("privacy.html")
+    return render_template("privacy.html",
+                           meta=meta_for(
+                               title="Политика обработки ПД — %s" % get_settings()["club_name"],
+                               description="Как клуб обрабатывает персональные данные."))
 
 
 @app.route("/terms")
 def terms():
-    return render_template("terms.html")
+    return render_template("terms.html",
+                           meta=meta_for(
+                               title="Соглашение — %s" % get_settings()["club_name"],
+                               description="Условия использования сайта авиамодельного клуба."))
+
+
+# ─── поисковики ──────────────────────────────────────────────────────────────
+
+@app.route("/sitemap.xml")
+def sitemap():
+    """Карта сайта. Только публичные страницы: кабинет, админка и редактор
+    закрыты от индексации."""
+    db = get_db()
+    urls = [{"loc": abs_url(p), "priority": pr, "freq": fr, "lastmod": None}
+            for p, pr, fr in (
+                ("/", "1.0", "daily"),
+                ("/news", "0.9", "daily"),
+                ("/schedule", "0.8", "weekly"),
+                ("/team", "0.8", "weekly"),
+                ("/about", "0.9", "monthly"),
+                ("/privacy", "0.2", "yearly"),
+                ("/terms", "0.2", "yearly"),
+            )]
+
+    for row in db.execute("""
+        SELECT slug, created_at FROM news
+        WHERE published = 1 ORDER BY created_at DESC LIMIT 500
+    """):
+        urls.append({"loc": abs_url("/news/" + row["slug"]),
+                     "priority": "0.7", "freq": "monthly",
+                     "lastmod": (row["created_at"] or "")[:10]})
+
+    for row in db.execute("""
+        SELECT u.id FROM users u
+        JOIN user_roles r ON r.user_id = u.id
+        WHERE r.role IN ('coach','athlete') AND u.is_approved = 1
+        GROUP BY u.id
+    """):
+        urls.append({"loc": abs_url("/u/%d" % row["id"]),
+                     "priority": "0.5", "freq": "monthly", "lastmod": None})
+
+    body = ['<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in urls:
+        body.append("  <url>")
+        body.append("    <loc>%s</loc>" % escape(u["loc"]))
+        if u["lastmod"]:
+            body.append("    <lastmod>%s</lastmod>" % escape(u["lastmod"]))
+        body.append("    <changefreq>%s</changefreq>" % u["freq"])
+        body.append("    <priority>%s</priority>" % u["priority"])
+        body.append("  </url>")
+    body.append("</urlset>")
+
+    resp = app.response_class("\n".join(body), mimetype="application/xml")
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
+
+
+@app.route("/robots.txt")
+def robots():
+    """Подсказки поисковикам: что индексировать и где карта сайта."""
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /cabinet",
+        "Disallow: /admin",
+        "Disallow: /editor",
+        "Disallow: /security",
+        "Disallow: /login",
+        "Disallow: /register",
+        "Disallow: /logout",
+        "Disallow: /api/",
+        "Disallow: /consent/",
+        "",
+        "Sitemap: %s" % abs_url("/sitemap.xml"),
+        "",
+    ]
+    resp = app.response_class("\n".join(lines), mimetype="text/plain")
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
 
 
 CONSENT_SIGNATURES = {"pdf": b"%PDF", "jpg": b"\xff\xd8\xff", "png": b"\x89PNG"}

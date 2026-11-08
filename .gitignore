@@ -8,3 +8,4 @@ __pycache__/
 .env
 УСТАНОВКА.txt
 *.tar.gz
+uploads/
