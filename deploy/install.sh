@@ -10,6 +10,7 @@ set -euo pipefail
 
 APP_DIR="/srv/aero"
 DATA_DIR="$APP_DIR/data"
+PRIVATE_DIR="$APP_DIR/private"
 DOMAIN="${1:-}"
 
 log()  { echo -e "\n\033[1;36m==> $*\033[0m"; }
@@ -44,6 +45,11 @@ mkdir -p "$DATA_DIR/uploads/news" "$DATA_DIR/uploads/people" "$DATA_DIR/backups"
 chown -R aero:aero "$DATA_DIR"
 chmod 750 "$DATA_DIR"
 ok "папки данных: $DATA_DIR"
+
+mkdir -p "$PRIVATE_DIR/consent"
+chown -R aero:aero "$PRIVATE_DIR"
+chmod 750 "$PRIVATE_DIR"
+ok "закрытая папка: $PRIVATE_DIR"
 
 # ─────────────────────────────────────────── файлы сайта
 if [ ! -f "$APP_DIR/app.py" ]; then
